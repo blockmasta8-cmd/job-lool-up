@@ -56,8 +56,8 @@ Supported country codes are `us` and `za`. Remote feeds only cover their own inv
 ## Quality checks
 
 ```bash
-npm test
 npm run build
+npm test
 ```
 
 GitHub Actions runs these checks for branch pushes and pull requests.
