@@ -1,5 +1,7 @@
 const COUNTRY = { us: 'United States', za: 'South Africa' }
 const allowed = new Set(['us', 'za'])
+const CACHE_TTL_MS = 90_000
+const responseCache = new Map()
 const clean = (v, n = 120) => String(v || '').trim().slice(0, n)
 const salary = (a, b, currency = '') => a == null && b == null ? null : `${currency} ${[a, b].filter(v => v != null).map(v => Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 })).join('–')}`.trim()
 function matchesText(job, query, location) {
@@ -84,12 +86,16 @@ function dedupe(jobs) {
   })
 }
 export default async function handler(req, res) {
-  res.setHeader('Cache-Control', 'no-store')
+  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120')
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
   const countryParam = clean(req.query?.country, 2).toLowerCase()
   const countries = countryParam ? [countryParam] : ['us', 'za']
   if (countries.some(c => !allowed.has(c))) return res.status(400).json({ error: 'Supported launch countries are us and za.' })
   const query = clean(req.query?.query, 100), location = clean(req.query?.location, 100), limit = Math.max(1, Math.min(30, Number(req.query?.limit) || 15))
+  const cacheKey = JSON.stringify([countries, query.toLowerCase(), location.toLowerCase(), limit])
+  const cached = responseCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) return res.status(200).json(cached.payload)
+  if (cached) responseCache.delete(cacheKey)
   const providers = [], jobs = [], errors = []
   for (const country of countries) {
     const tasks = [searchAdzuna({ country, query, location, limit }).then(x => ({ name: 'Adzuna', country, ...x })).catch(e => ({ name: 'Adzuna', country, configured: true, jobs: [], error: e.message }))]
@@ -110,5 +116,11 @@ export default async function handler(req, res) {
     jobs.push(...x.jobs)
   }
   const result = dedupe(jobs).sort((a, b) => Date.parse(b.postedAt || 0) - Date.parse(a.postedAt || 0)).slice(0, limit * countries.length + limit)
-  return res.status(200).json({ jobs: result, total: result.length, providers, errors, configured: providers.some(p => p.configured), message: result.length ? null : 'No current listings matched. Try a broader search.' })
+  const payload = { jobs: result, total: result.length, providers, errors, configured: providers.some(p => p.configured), message: result.length ? null : 'No current listings matched. Try a broader search.' }
+  responseCache.set(cacheKey, { payload, expiresAt: Date.now() + CACHE_TTL_MS })
+  if (responseCache.size > 250) {
+    const now = Date.now()
+    for (const [key, value] of responseCache) if (value.expiresAt <= now || responseCache.size > 200) responseCache.delete(key)
+  }
+  return res.status(200).json(payload)
 }
