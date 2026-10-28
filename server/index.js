@@ -41,7 +41,7 @@ async function serveFrontend(req, res, pathname) {
     return true
   }
 
-  const relativePath = decodedPath === '/' ? 'index.html' : decodedPath.replace(/^\\/+/, '')
+  const relativePath = decodedPath === '/' ? 'index.html' : decodedPath.startsWith('/') ? decodedPath.slice(1) : decodedPath
   let filePath = resolve(DIST_DIR, relativePath)
   if (filePath !== DIST_DIR && !filePath.startsWith(DIST_DIR + sep)) {
     res.statusCode = 403
