@@ -18,9 +18,18 @@ function matchesText(job, query, location) {
 }
 function matchesCountry(job, country) {
   const geo = (job.location + ' ' + (job.eligibility || '')).toLowerCase()
-  if (country === 'us') return /united states|\busa\b|\bu\.s\.\b|\bus\b|america|worldwide|anywhere|global/i.test(geo)
-  if (country === 'za') return /south africa|\bza\b|worldwide|anywhere|global/i.test(geo)
-  return true
+  const aliases = {
+    us: /united states|\\busa\\b|\\bu\\.s\\.\\b|america/i,
+    za: /south africa|\\bza\\b/i,
+    gb: /united kingdom|\\buk\\b|britain|england|scotland|wales/i,
+    ae: /united arab emirates|\\buae\\b|dubai|abu dhabi/i,
+    kr: /south korea|republic of korea/i,
+    nl: /netherlands|holland/i,
+  }
+  const name = COUNTRY[country]
+  if (!name) return /worldwide|anywhere|global/i.test(geo)
+  const matcher = aliases[country] || new RegExp(name.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&'), 'i')
+  return matcher.test(geo) || /worldwide|anywhere|global/i.test(geo)
 }
 async function searchJobicy({ query, location, country, limit }) {
   const p = new URLSearchParams({ count: String(Math.min(100, Math.max(20, limit * 4))) })
