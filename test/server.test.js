@@ -34,6 +34,7 @@ test('single Node service serves the built frontend and health API', { skip: !ex
       PORT: String(port),
       ADZUNA_APP_ID: '',
       ADZUNA_APP_KEY: '',
+      ADZUNA_COMMERCIAL_LICENSE_CONFIRMED: 'false',
       USAJOBS_API_KEY: '',
       USAJOBS_USER_AGENT: '',
     },

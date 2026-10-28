@@ -8,8 +8,17 @@ const COUNTRY = {
 }
 const allowed = new Set(Object.keys(COUNTRY))
 const adzunaCountries = new Set(['us', 'za', 'gb', 'ca', 'au', 'nz', 'de', 'fr', 'nl', 'ie', 'sg', 'in', 'es', 'it', 'br', 'mx', 'at', 'be', 'pl'])
+const arbeitnowFeeds = {
+  de: 'https://www.arbeitnow.com/api/job-board-api',
+  gb: 'https://www.arbeitnow.co.uk/api/job-board-api',
+  fr: 'https://www.arbeitnow.fr/api/job-board-api',
+  ch: 'https://www.arbeitnow.ch/api/job-board-api',
+  nl: 'https://www.arbeitnow.nl/api/job-board-api',
+}
 const CACHE_TTL_MS = 90_000
+const FEED_CACHE_TTL_MS = 6 * 60 * 60 * 1000
 const responseCache = new Map()
+const arbeitnowFeedCache = new Map()
 const clean = (v, n = 120) => String(v || '').trim().slice(0, n)
 const salary = (a, b, currency = '') => a == null && b == null ? null : `${currency} ${[a, b].filter(v => v != null).map(v => Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 })).join('–')}`.trim()
 function matchesText(job, query, location) {
@@ -59,6 +68,59 @@ async function searchRemoteOK({ query, location, country, limit }) {
   }).filter(Boolean).filter(j => matchesText(j, query, location) && (!country || matchesCountry(j, country)))
   return { configured: true, jobs: jobs.slice(0, limit) }
 }
+async function readArbeitnowFeed(country) {
+  const feedUrl = arbeitnowFeeds[country]
+  if (!feedUrl) return { configured: false, jobs: [] }
+  const cached = arbeitnowFeedCache.get(country)
+  if (cached && cached.expiresAt > Date.now()) return { configured: true, jobs: cached.jobs }
+  const r = await fetch(feedUrl, { signal: AbortSignal.timeout(10000), headers: { accept: 'application/json' } })
+  if (!r.ok) throw Error(`Arbeitnow HTTP ${r.status}`)
+  const data = await r.json()
+  if (!Array.isArray(data.data)) throw Error('Arbeitnow returned an invalid jobs payload')
+  const sourceUrl = new URL(feedUrl).origin
+  const jobs = data.data.map(x => {
+    const slug = clean(x.slug || x.id || x.title, 150)
+    const fallbackUrl = slug ? `${sourceUrl}/view/${encodeURIComponent(slug)}` : ''
+    const candidateUrl = typeof x.url === 'string' ? x.url : ''
+    const url = /^https:\/\//i.test(candidateUrl) ? candidateUrl : fallbackUrl
+    const title = clean(x.title, 180)
+    if (!title || !url) return null
+    const location = clean(x.location) || COUNTRY[country]
+    const tags = Array.isArray(x.tags) ? x.tags.map(tag => clean(tag, 60)).filter(Boolean) : []
+    const jobTypes = Array.isArray(x.job_types) ? x.job_types.map(type => clean(type, 60).replaceAll('_', ' ')).filter(Boolean) : []
+    const createdAt = x.created_at
+    let postedAt = null
+    if (typeof createdAt === 'number' && Number.isFinite(createdAt) && createdAt > 0) {
+      const timestamp = createdAt > 1e12 ? createdAt : createdAt * 1000
+      if (Number.isFinite(new Date(timestamp).getTime())) postedAt = new Date(timestamp).toISOString()
+    } else if (typeof createdAt === 'string' && createdAt.trim()) {
+      const timestamp = Date.parse(createdAt)
+      if (Number.isFinite(timestamp)) postedAt = new Date(timestamp).toISOString()
+    }
+    return {
+      id: `arbeitnow-${country}-${slug}`, title,
+      company: clean(x.company_name) || 'Employer not listed',
+      location, country: COUNTRY[country], countryCode: country,
+      type: jobTypes.join(', ') || (x.remote ? 'Remote' : 'Not specified'),
+      category: tags.join(', ') || 'General',
+      salary: salary(x.salary_min, x.salary_max, x.salary_currency || ''),
+      postedAt, url, source: 'Arbeitnow', sourceUrl, tags,
+      eligibility: x.remote ? 'Remote' : location,
+    }
+  }).filter(Boolean)
+  arbeitnowFeedCache.set(country, { jobs, expiresAt: Date.now() + FEED_CACHE_TTL_MS })
+  return { configured: true, jobs }
+}
+async function searchArbeitnow({ country, query, location, limit }) {
+  const feed = await readArbeitnowFeed(country)
+  return {
+    configured: feed.configured,
+    jobs: feed.jobs.filter(job =>
+      matchesText(job, query, location) &&
+      (job.countryCode === country || matchesCountry(job, country))
+    ).slice(0, limit),
+  }
+}
 function adzunaJob(x, country) {
   const url = x.redirect_url || '', title = clean(x.title, 180), postedAt = x.created || null
   if (!title || !/^https?:\/\//i.test(url)) return null
@@ -66,8 +128,8 @@ function adzunaJob(x, country) {
   return { id: `adzuna-${country}-${clean(x.id, 100)}`, title, company: clean(x.company?.display_name) || 'Employer not listed', location: clean(x.location?.display_name) || COUNTRY[country], country: COUNTRY[country], countryCode: country, type: x.contract_time === 'full_time' ? 'Full-time' : x.contract_time === 'part_time' ? 'Part-time' : 'Not specified', category: clean(x.category?.label) || 'General', salary: salary(x.salary_min, x.salary_max, x.salary_currency || (country === 'za' ? 'ZAR' : 'USD')), postedAt, url, source: 'Adzuna', sourceUrl: country === 'za' ? 'https://www.adzuna.co.za/' : 'https://www.adzuna.com/' }
 }
 async function searchAdzuna({ country, query, location, limit }) {
-  const { ADZUNA_APP_ID: id, ADZUNA_APP_KEY: key } = process.env
-  if (!adzunaCountries.has(country) || !id || !key) return { configured: false, jobs: [] }
+  const { ADZUNA_APP_ID: id, ADZUNA_APP_KEY: key, ADZUNA_COMMERCIAL_LICENSE_CONFIRMED: licenseConfirmed } = process.env
+  if (!adzunaCountries.has(country) || !id || !key || licenseConfirmed !== 'true') return { configured: false, jobs: [] }
   const p = new URLSearchParams({ app_id: id, app_key: key, results_per_page: String(limit), 'content-type': 'application/json' })
   if (query) p.set('what', query)
   if (location) p.set('where', location)
@@ -132,7 +194,21 @@ export default async function handler(req, res) {
     if (x.error) errors.push(`${x.name}: ${x.error}`)
     jobs.push(...x.jobs)
   }
-  const result = dedupe(jobs).sort((a, b) => Date.parse(b.postedAt || 0) - Date.parse(a.postedAt || 0)).slice(0, limit * countries.length + limit)
+  const feedCountriesToSearch = countryParam
+    ? (arbeitnowFeeds[countryParam] ? [countryParam] : [])
+    : Object.keys(arbeitnowFeeds)
+  const feedTasks = feedCountriesToSearch.map(country =>
+    searchArbeitnow({ country, query, location, limit })
+      .then(x => ({ name: 'Arbeitnow', country, ...x }))
+      .catch(e => ({ name: 'Arbeitnow', country, configured: true, jobs: [], error: e.message }))
+  )
+  for (const x of await Promise.all(feedTasks)) {
+    providers.push({ name: x.name, country: x.country, configured: x.configured, returned: x.jobs.length, ...(x.error ? { error: x.error } : {}) })
+    if (x.error) errors.push(`${x.name} (${x.country}): ${x.error}`)
+    jobs.push(...x.jobs)
+  }
+  const maximumResults = limit * (countries.length + feedCountriesToSearch.length + 2 + (countries.includes('us') ? 1 : 0))
+  const result = dedupe(jobs).sort((a, b) => Date.parse(b.postedAt || 0) - Date.parse(a.postedAt || 0)).slice(0, maximumResults)
   const payload = { jobs: result, total: result.length, providers, errors, configured: providers.some(p => p.configured), message: result.length ? null : 'No current listings matched. Try a broader search.' }
   // Do not cache partial/error responses; allow a quick retry after provider recovery.
   if (errors.length === 0) responseCache.set(cacheKey, { payload, expiresAt: Date.now() + CACHE_TTL_MS })
