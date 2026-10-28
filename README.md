@@ -63,7 +63,15 @@ npm run build
 npm test
 ```
 
-GitHub Actions runs these checks for branch pushes and pull requests.
+For a real upstream smoke test after installing dependencies, run:
+
+```bash
+npm run smoke:live
+```
+
+This starts the local Node API, calls real providers for the US, South Africa and Germany, and reports provider errors, result counts, duplicate candidates, and source-link checks. It is not part of CI because it contacts third-party services and depends on network/provider availability. Pass `-- --country=us,za` to limit it to selected markets. The script never prints API keys or other environment secrets.
+
+GitHub Actions runs the build and deterministic tests for branch pushes and pull requests.
 
 ## Roadmap
 

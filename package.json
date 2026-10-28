@@ -12,7 +12,8 @@
     "start": "node --env-file-if-exists=.env server/index.js",
     "preview": "vite preview --host 0.0.0.0",
     "api": "node --env-file-if-exists=.env server/index.js",
-    "test": "node --test"
+    "test": "node --test",
+    "smoke:live": "node --env-file-if-exists=.env scripts/live-smoke.js"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
