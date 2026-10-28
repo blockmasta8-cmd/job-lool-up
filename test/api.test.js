@@ -93,6 +93,32 @@ test('job search API does not cache provider failures', async () => {
   }
 })
 
+test('job search API accepts additional global launch countries', async () => {
+  const originalFetch = globalThis.fetch
+  const envKeys = ['ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'USAJOBS_API_KEY', 'USAJOBS_USER_AGENT']
+  const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]))
+  for (const key of envKeys) delete process.env[key]
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input))
+    if (url.hostname === 'jobicy.com') return { ok: true, status: 200, json: async () => ({ jobs: [] }) }
+    if (url.hostname === 'remoteok.com') return { ok: true, status: 200, json: async () => [] }
+    throw new Error('Unexpected upstream in test: ' + url.hostname)
+  }
+  try {
+    const res = createResponse()
+    await jobsHandler({ method: 'GET', query: { country: 'de', query: 'global-market-test-unique' } }, res)
+    assert.equal(res.statusCode, 200)
+    assert.equal(res.body.errors.length, 0)
+    assert.ok(res.body.providers.some((provider) => provider.country === 'de'))
+  } finally {
+    globalThis.fetch = originalFetch
+    for (const key of envKeys) {
+      if (originalEnv[key] === undefined) delete process.env[key]
+      else process.env[key] = originalEnv[key]
+    }
+  }
+})
+
 test('job search API validates requests and uses real source records', async (t) => {
   await t.test('rejects methods other than GET', async () => {
     const res = createResponse()
