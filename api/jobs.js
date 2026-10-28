@@ -1,5 +1,13 @@
-const COUNTRY = { us: 'United States', za: 'South Africa' }
-const allowed = new Set(['us', 'za'])
+const COUNTRY = {
+  us: 'United States', za: 'South Africa', gb: 'United Kingdom', ca: 'Canada',
+  au: 'Australia', nz: 'New Zealand', de: 'Germany', fr: 'France', nl: 'Netherlands',
+  ie: 'Ireland', sg: 'Singapore', jp: 'Japan', kr: 'South Korea', ae: 'United Arab Emirates',
+  ch: 'Switzerland', se: 'Sweden', no: 'Norway', dk: 'Denmark', in: 'India',
+  es: 'Spain', it: 'Italy', br: 'Brazil', mx: 'Mexico', at: 'Austria', be: 'Belgium',
+  pl: 'Poland', pt: 'Portugal'
+}
+const allowed = new Set(Object.keys(COUNTRY))
+const adzunaCountries = new Set(['us', 'za', 'gb', 'ca', 'au', 'nz', 'de', 'fr', 'nl', 'ie', 'sg', 'in', 'es', 'it', 'br', 'mx', 'at', 'be', 'pl'])
 const CACHE_TTL_MS = 90_000
 const responseCache = new Map()
 const clean = (v, n = 120) => String(v || '').trim().slice(0, n)
@@ -50,7 +58,7 @@ function adzunaJob(x, country) {
 }
 async function searchAdzuna({ country, query, location, limit }) {
   const { ADZUNA_APP_ID: id, ADZUNA_APP_KEY: key } = process.env
-  if (!id || !key) return { configured: false, jobs: [] }
+  if (!adzunaCountries.has(country) || !id || !key) return { configured: false, jobs: [] }
   const p = new URLSearchParams({ app_id: id, app_key: key, results_per_page: String(limit), 'content-type': 'application/json' })
   if (query) p.set('what', query)
   if (location) p.set('where', location)
@@ -90,7 +98,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
   const countryParam = clean(req.query?.country, 2).toLowerCase()
   const countries = countryParam ? [countryParam] : ['us', 'za']
-  if (countries.some(c => !allowed.has(c))) return res.status(400).json({ error: 'Supported launch countries are us and za.' })
+  if (countries.some(c => !allowed.has(c))) return res.status(400).json({ error: 'Unsupported country code.' })
   const query = clean(req.query?.query, 100), location = clean(req.query?.location, 100), limit = Math.max(1, Math.min(30, Number(req.query?.limit) || 15))
   const cacheKey = JSON.stringify([countries, query.toLowerCase(), location.toLowerCase(), limit])
   const cached = responseCache.get(cacheKey)
