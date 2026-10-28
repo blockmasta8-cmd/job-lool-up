@@ -117,7 +117,8 @@ export default async function handler(req, res) {
   }
   const result = dedupe(jobs).sort((a, b) => Date.parse(b.postedAt || 0) - Date.parse(a.postedAt || 0)).slice(0, limit * countries.length + limit)
   const payload = { jobs: result, total: result.length, providers, errors, configured: providers.some(p => p.configured), message: result.length ? null : 'No current listings matched. Try a broader search.' }
-  responseCache.set(cacheKey, { payload, expiresAt: Date.now() + CACHE_TTL_MS })
+  // Do not cache partial/error responses; allow a quick retry after provider recovery.
+  if (errors.length === 0) responseCache.set(cacheKey, { payload, expiresAt: Date.now() + CACHE_TTL_MS })
   if (responseCache.size > 250) {
     const now = Date.now()
     for (const [key, value] of responseCache) if (value.expiresAt <= now || responseCache.size > 200) responseCache.delete(key)
