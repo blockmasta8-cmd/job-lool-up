@@ -107,7 +107,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
   const countryParam = clean(req.query?.country, 2).toLowerCase()
   const countries = countryParam ? [countryParam] : [...adzunaCountries]
-  if (countries.some(c => !allowed.has(c))) return res.status(400).json({ error: 'Unsupported country code.' })
+  if (countries.some(c => !allowed.has(c))) return res.status(400).json({ error: `Unsupported country code. Supported launch countries: ${[...allowed].join(', ')}.` })
   const query = clean(req.query?.query, 100), location = clean(req.query?.location, 100), limit = Math.max(1, Math.min(30, Number(req.query?.limit) || 15))
   const cacheKey = JSON.stringify([countries, query.toLowerCase(), location.toLowerCase(), limit])
   const cached = responseCache.get(cacheKey)
