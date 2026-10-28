@@ -2,6 +2,44 @@ const COUNTRY = { us: 'United States', za: 'South Africa' }
 const allowed = new Set(['us', 'za'])
 const clean = (v, n = 120) => String(v || '').trim().slice(0, n)
 const salary = (a, b, currency = '') => a == null && b == null ? null : `${currency} ${[a, b].filter(v => v != null).map(v => Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 })).join('–')}`.trim()
+function matchesText(job, query, location) {
+  const text = [job.title, job.company, job.location, job.category, ...(job.tags || [])].join(' ').toLowerCase()
+  return (!query || query.toLowerCase().split(/\s+/).every(word => text.includes(word))) && (!location || job.location.toLowerCase().includes(location.toLowerCase()))
+}
+function matchesCountry(job, country) {
+  const geo = (job.location + ' ' + (job.eligibility || '')).toLowerCase()
+  if (country === 'us') return /united states|\busa\b|\bu\.s\.\b|\bus\b|america|worldwide|anywhere|global/i.test(geo)
+  if (country === 'za') return /south africa|\bza\b|worldwide|anywhere|global/i.test(geo)
+  return true
+}
+async function searchJobicy({ query, location, country, limit }) {
+  const p = new URLSearchParams({ count: String(Math.min(100, Math.max(20, limit * 4))) })
+  if (query) p.set('tag', query)
+  if (country === 'us') p.set('geo', 'usa')
+  if (country === 'za') p.set('geo', 'anywhere')
+  const r = await fetch(`https://jobicy.com/api/jobs?${p}`, { signal: AbortSignal.timeout(10000), headers: { accept: 'application/json' } })
+  if (!r.ok) throw Error(`Jobicy HTTP ${r.status}`)
+  const data = await r.json()
+  const jobs = (data.jobs || []).map(x => {
+    const url = x.url || '', title = clean(x.jobTitle || x.title, 180), postedAt = x.pubDate || x.date || x.jobPosted || null
+    if (!title || !url.startsWith('https://jobicy.com/')) return null
+    const geo = clean(x.jobGeo || x.location) || 'Remote / eligibility not specified'
+    return { id: `jobicy-${clean(x.id, 100)}`, title, company: clean(x.companyName || x.company) || 'Employer not listed', location: geo, country: geo, countryCode: country || 'remote', type: clean(Array.isArray(x.jobType) ? x.jobType.join(', ') : x.jobType) || 'Remote', category: clean(Array.isArray(x.jobIndustry) ? x.jobIndustry.join(', ') : x.jobIndustry) || 'General', salary: salary(x.annualSalaryMin || x.salaryMin, x.annualSalaryMax || x.salaryMax, x.salaryCurrency || ''), postedAt, url, source: 'Jobicy', sourceUrl: 'https://jobicy.com/', tags: Array.isArray(x.jobIndustry) ? x.jobIndustry : [], eligibility: clean(x.jobGeo) }
+  }).filter(Boolean).filter(j => matchesText(j, query, location) && (!country || matchesCountry(j, country)))
+  return { configured: true, jobs: jobs.slice(0, limit) }
+}
+async function searchRemoteOK({ query, location, country, limit }) {
+  const r = await fetch('https://remoteok.com/api', { signal: AbortSignal.timeout(10000), headers: { accept: 'application/json', 'User-Agent': 'Job-Lool-Up/0.1 (job discovery; source attribution enabled)' } })
+  if (!r.ok) throw Error(`Remote OK HTTP ${r.status}`)
+  const data = await r.json()
+  const jobs = (Array.isArray(data) ? data : []).filter(x => x && x.id && x.position).map(x => {
+    const url = x.url || (x.slug ? `https://remoteok.com/remote-jobs/${x.slug}` : '')
+    if (!url.startsWith('https://remoteok.com/')) return null
+    const geo = clean(x.location) || 'Remote / eligibility not specified'
+    return { id: `remoteok-${clean(x.id, 100)}`, title: clean(x.position, 180), company: clean(x.company) || 'Employer not listed', location: geo, country: geo, countryCode: country || 'remote', type: 'Remote', category: clean(Array.isArray(x.tags) ? x.tags.join(', ') : '') || 'General', salary: salary(x.salary_min, x.salary_max, x.salary_currency || 'USD'), postedAt: x.date || null, url, source: 'Remote OK', sourceUrl: 'https://remoteok.com/', tags: Array.isArray(x.tags) ? x.tags : [], eligibility: clean(x.location) }
+  }).filter(Boolean).filter(j => matchesText(j, query, location) && (!country || matchesCountry(j, country)))
+  return { configured: true, jobs: jobs.slice(0, limit) }
+}
 function adzunaJob(x, country) {
   const url = x.redirect_url || '', title = clean(x.title, 180), postedAt = x.created || null
   if (!title || !/^https?:\/\//i.test(url)) return null
@@ -62,6 +100,15 @@ export default async function handler(req, res) {
       jobs.push(...x.jobs)
     }
   }
-  const result = dedupe(jobs).sort((a, b) => Date.parse(b.postedAt || 0) - Date.parse(a.postedAt || 0)).slice(0, limit * countries.length)
-  return res.status(200).json({ jobs: result, total: result.length, providers, errors, configured: providers.some(p => p.configured), message: result.length ? null : providers.some(p => p.configured) ? 'No current listings matched. Try a broader search.' : 'No job sources are configured yet. Add API credentials to enable live listings.' })
+  const globalTasks = [
+    searchJobicy({ query, location, country: countryParam || null, limit }).then(x => ({ name: 'Jobicy', country: countryParam || 'global', ...x })).catch(e => ({ name: 'Jobicy', country: countryParam || 'global', configured: true, jobs: [], error: e.message })),
+    searchRemoteOK({ query, location, country: countryParam || null, limit }).then(x => ({ name: 'Remote OK', country: countryParam || 'global', ...x })).catch(e => ({ name: 'Remote OK', country: countryParam || 'global', configured: true, jobs: [], error: e.message })),
+  ]
+  for (const x of await Promise.all(globalTasks)) {
+    providers.push({ name: x.name, country: x.country, configured: x.configured, returned: x.jobs.length, ...(x.error ? { error: x.error } : {}) })
+    if (x.error) errors.push(`${x.name}: ${x.error}`)
+    jobs.push(...x.jobs)
+  }
+  const result = dedupe(jobs).sort((a, b) => Date.parse(b.postedAt || 0) - Date.parse(a.postedAt || 0)).slice(0, limit * countries.length + limit)
+  return res.status(200).json({ jobs: result, total: result.length, providers, errors, configured: providers.some(p => p.configured), message: result.length ? null : 'No current listings matched. Try a broader search.' })
 }
