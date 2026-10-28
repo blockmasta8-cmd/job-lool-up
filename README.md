@@ -1,6 +1,6 @@
 # Job-Lool-Up
 
-A mobile-first global job discovery SaaS. Launch focus: United States, then South Africa, followed by other major employment markets.
+A mobile-first global job discovery SaaS. Country filters cover 27 major markets, with worldwide remote feeds and direct links to official job portals. Listing coverage varies by country and source.
 
 ## Current status
 
@@ -51,7 +51,7 @@ The service listens on `PORT` when supplied by the host, otherwise `API_PORT`, t
 - `GET /api/jobs?country=za&query=developer&location=Cape%20Town` — South Africa search.
 - `GET /api/jobs?query=analyst` — searches launch countries and public remote feeds.
 
-Supported country codes are `us` and `za`. Remote feeds only cover their own inventory and eligibility can vary by vacancy. Check the original posting before applying. Salaries are shown only when a source provides them.
+Supported country filters include `us`, `za`, `gb`, `ca`, `au`, `nz`, `de`, `fr`, `nl`, `ie`, `sg`, `jp`, `kr`, `ae`, `ch`, `se`, `no`, `dk`, `in`, `es`, `it`, `br`, `mx`, `at`, `be`, `pl`, and `pt`. With **All countries** selected, the API searches every market supported by the configured Adzuna integration plus the global remote feeds. Adzuna supports only a subset of the country filters; for unsupported markets, global-feed results are shown only when the listing explicitly indicates that country or worldwide eligibility. Direct official vacancy-board links provide additional search routes. This is global country selection, not a claim that every country has comprehensive live aggregation. Remote feeds only cover their own inventory and eligibility can vary by vacancy. Check the original posting before applying. Salaries are shown only when a source provides them.
 
 ## Quality checks
 
