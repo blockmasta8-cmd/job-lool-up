@@ -12,3 +12,13 @@ A mobile-first global job discovery SaaS. Launch focus: United States, then Sout
 
 ## Status
 Initial project setup. No live job-source integrations are configured yet; listings must not be represented as live until a real source is integrated and verified.
+
+## Run locally
+
+```bash
+npm install
+npm run dev
+```
+
+## Current implementation
+The initial UI is responsive and includes keyword filtering, country/work-type filters, product direction, and explicit sample-data labeling. The cards are placeholders, not real job postings. API ingestion, authentication, persistence, alerts, and deployment are not implemented yet.
