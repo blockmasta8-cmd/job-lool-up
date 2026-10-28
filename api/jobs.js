@@ -19,10 +19,10 @@ function matchesText(job, query, location) {
 function matchesCountry(job, country) {
   const geo = (job.location + ' ' + (job.eligibility || '')).toLowerCase()
   const aliases = {
-    us: /united states|\\busa\\b|\\bu\\.s\\.\\b|america/i,
-    za: /south africa|\\bza\\b/i,
-    gb: /united kingdom|\\buk\\b|britain|england|scotland|wales/i,
-    ae: /united arab emirates|\\buae\\b|dubai|abu dhabi/i,
+    us: /united states|\busa\b|\bu\\.s\\.\b|america/i,
+    za: /south africa|\bza\b/i,
+    gb: /united kingdom|\buk\b|britain|england|scotland|wales/i,
+    ae: /united arab emirates|\buae\b|dubai|abu dhabi/i,
     kr: /south korea|republic of korea/i,
     nl: /netherlands|holland/i,
   }
