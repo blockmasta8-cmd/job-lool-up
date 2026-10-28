@@ -8,7 +8,7 @@ type Job = {
 }
 type Provider = { name: string; country: string; configured: boolean; returned: number; error?: string }
 type SearchResponse = { jobs: Job[]; total: number; providers: Provider[]; errors: string[]; configured: boolean; message: string | null }
-const countries = ['All countries', 'United States', 'South Africa', 'United Kingdom', 'Canada', 'Australia', 'Germany']
+const countries = ['All countries', 'United States', 'South Africa']
 const countryCode: Record<string, string> = { 'United States': 'us', 'South Africa': 'za' }
 
 export default function App() {
