@@ -28,8 +28,8 @@ function matchesCountry(job, country) {
   }
   const name = COUNTRY[country]
   if (!name) return /worldwide|anywhere|global/i.test(geo)
-  const matcher = aliases[country] || new RegExp(name.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&'), 'i')
-  return matcher.test(geo) || /worldwide|anywhere|global/i.test(geo)
+  const matches = aliases[country] ? aliases[country].test(geo) : geo.includes(name.toLowerCase())
+  return matches || /worldwide|anywhere|global/i.test(geo)
 }
 async function searchJobicy({ query, location, country, limit }) {
   const p = new URLSearchParams({ count: String(Math.min(100, Math.max(20, limit * 4))) })
