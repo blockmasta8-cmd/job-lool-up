@@ -21,6 +21,40 @@ function createResponse() {
   }
 }
 
+
+test('job search API caches identical public searches briefly', async () => {
+  const originalFetch = globalThis.fetch
+  const envKeys = ['ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'USAJOBS_API_KEY', 'USAJOBS_USER_AGENT']
+  const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]))
+  for (const key of envKeys) delete process.env[key]
+  let upstreamCalls = 0
+  globalThis.fetch = async (input) => {
+    upstreamCalls += 1
+    const url = new URL(String(input))
+    if (url.hostname === 'jobicy.com') return { ok: true, status: 200, json: async () => ({ jobs: [] }) }
+    if (url.hostname === 'remoteok.com') return { ok: true, status: 200, json: async () => [] }
+    throw new Error('Unexpected upstream in test: ' + url.hostname)
+  }
+  try {
+    const query = { country: 'za', query: 'cache-test-unique', limit: '7' }
+    const first = createResponse()
+    await jobsHandler({ method: 'GET', query }, first)
+    assert.equal(first.statusCode, 200)
+    assert.equal(upstreamCalls, 2)
+    const second = createResponse()
+    await jobsHandler({ method: 'GET', query }, second)
+    assert.equal(second.statusCode, 200)
+    assert.deepEqual(second.body, first.body)
+    assert.equal(upstreamCalls, 2, 'the second identical request should use the cache')
+  } finally {
+    globalThis.fetch = originalFetch
+    for (const key of envKeys) {
+      if (originalEnv[key] === undefined) delete process.env[key]
+      else process.env[key] = originalEnv[key]
+    }
+  }
+})
+
 test('job search API validates requests and uses real source records', async (t) => {
   await t.test('rejects methods other than GET', async () => {
     const res = createResponse()
