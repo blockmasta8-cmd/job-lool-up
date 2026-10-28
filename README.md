@@ -4,7 +4,7 @@ A mobile-first global job discovery SaaS. Launch focus: United States, then Sout
 
 ## Current status
 
-The app includes serverless search endpoints for deployment and a local Node API. Sources:
+The app includes a React search interface and a Node.js API. The same Node.js service can serve the built frontend and the API, without tying the project to a serverless hosting platform. Sources:
 - **Jobicy**: keyless public remote-job API; recent postings, with original Jobicy listing links and attribution.
 - **Remote OK**: public remote-job feed; the UI links to each original listing and credits Remote OK.
 - **USAJOBS**: US federal vacancy API, activated when an API key and registered email are configured.
@@ -30,7 +30,19 @@ cp .env.example .env
 npm run dev
 ```
 
-Vite serves the frontend and proxies `/api` requests to the Node API on port 8787. Check `/api/health` for configured providers. Run only the API with `npm run api`.
+Requires Node.js 22.12 or newer. Vite serves the frontend during development and proxies `/api` requests to the Node API on port 8787. Check `/api/health` for configured providers. Run only the API with `npm run api`.
+
+## Build and run as a single Node.js service
+
+This project can run on any suitable Node.js host or your own server; it is not tied to a specific hosting provider.
+
+```bash
+npm ci
+npm run build
+npm start
+```
+
+The service listens on `PORT` when supplied by the host, otherwise `API_PORT`, then port 8787. Build the frontend before starting the production service.
 
 ## API
 
@@ -40,6 +52,15 @@ Vite serves the frontend and proxies `/api` requests to the Node API on port 878
 - `GET /api/jobs?query=analyst` — searches launch countries and public remote feeds.
 
 Supported country codes are `us` and `za`. Remote feeds only cover their own inventory and eligibility can vary by vacancy. Check the original posting before applying. Salaries are shown only when a source provides them.
+
+## Quality checks
+
+```bash
+npm test
+npm run build
+```
+
+GitHub Actions runs these checks for branch pushes and pull requests.
 
 ## Roadmap
 
