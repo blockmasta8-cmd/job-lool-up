@@ -10,7 +10,7 @@ function normalizeAdzuna(x,country){
  const url=x.redirect_url||'', title=clean(x.title,180), postedAt=x.created||null
  if(!title||!/^https?:\/\//i.test(url))return null
  if(postedAt&&Number.isFinite(Date.parse(postedAt))&&Date.parse(postedAt)<Date.now()-45*86400000)return null
- return {id:`adzuna-${country}-${clean(x.id,100)}`,title,company:clean(x.company?.display_name)||'Employer not listed',location:clean(x.location?.display_name)||COUNTRY[country],country:COUNTRY[country],countryCode:country,type:x.contract_time==='full_time'?'Full-time':x.contract_time==='part_time'?'Part-time':'Not specified',category:clean(x.category?.label)||'General',salary:salary(x.salary_min,x.salary_max,x.salary_currency),postedAt,url,source:'Adzuna',sourceUrl:country==='za'?'https://www.adzuna.co.za/':'https://www.adzuna.com/'}
+ return {id:`adzuna-${country}-${clean(x.id,100)}`,title,company:clean(x.company?.display_name)||'Employer not listed',location:clean(x.location?.display_name)||COUNTRY[country],country:COUNTRY[country],countryCode:country,type:x.contract_time==='full_time'?'Full-time':x.contract_time==='part_time'?'Part-time':'Not specified',category:clean(x.category?.label)||'General',salary:salary(x.salary_min,x.salary_max,x.salary_currency||(country==='za'?'ZAR':'USD')),postedAt,url,source:'Adzuna',sourceUrl:country==='za'?'https://www.adzuna.co.za/':'https://www.adzuna.com/'}
 }
 async function adzuna({country,query,location,limit}){
  const {ADZUNA_APP_ID:id,ADZUNA_APP_KEY:key}=process.env
