@@ -3,11 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "node --env-file-if-exists=.env server/index.js & vite --host 0.0.0.0; wait",
     "build": "tsc -b && vite build",
+    "start": "node --env-file-if-exists=.env server/index.js",
     "preview": "vite preview --host 0.0.0.0",
-    "api": "node --env-file-if-exists=.env server/index.js"
+    "api": "node --env-file-if-exists=.env server/index.js",
+    "test": "node --test"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
