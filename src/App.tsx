@@ -6,7 +6,9 @@ type Job = {
   type: string; category: string; salary: string | null; postedAt: string | null; url: string
   source: string; sourceUrl: string
 }
-type Provider = { name: string; country: string; configured: boolean; returned: number; error?: string }\ntype ApplicationStage = 'Saved' | 'Applied' | 'Interviewing' | 'Offered' | 'Rejected'\nconst applicationStages: ApplicationStage[] = ['Saved', 'Applied', 'Interviewing', 'Offered', 'Rejected']
+type Provider = { name: string; country: string; configured: boolean; returned: number; error?: string }
+type ApplicationStage = 'Saved' | 'Applied' | 'Interviewing' | 'Offered' | 'Rejected'
+const applicationStages: ApplicationStage[] = ['Saved', 'Applied', 'Interviewing', 'Offered', 'Rejected']
 type SearchResponse = { jobs: Job[]; total: number; providers: Provider[]; errors: string[]; configured: boolean; message: string | null }
 const countries = ['All countries', 'United States', 'South Africa']
 const countryCode: Record<string, string> = { 'United States': 'us', 'South Africa': 'za' }
@@ -16,7 +18,15 @@ export default function App() {
   const [location, setLocation] = useState('')
   const [country, setCountry] = useState('All countries')
   const [workType, setWorkType] = useState('Any work type')
-  const [savedOnly, setSavedOnly] = useState(false)\n  const [trackerMode, setTrackerMode] = useState(false)\n  const [applicationStagesByJob, setApplicationStagesByJob] = useState<Record<string, ApplicationStage>>(() => {\n    try { return JSON.parse(window.localStorage.getItem('job-lool-up:application-stages') || '{}') as Record<string, ApplicationStage> } catch { return {} }\n  })\n  useEffect(() => {\n    try { window.localStorage.setItem('job-lool-up:application-stages', JSON.stringify(applicationStagesByJob)) } catch { /* Storage can be unavailable in private browsing. */ }\n  }, [applicationStagesByJob])\n  const updateApplicationStage = (jobId: string, stage: ApplicationStage) => setApplicationStagesByJob(current => ({ ...current, [jobId]: stage }))
+  const [savedOnly, setSavedOnly] = useState(false)
+  const [trackerMode, setTrackerMode] = useState(false)
+  const [applicationStagesByJob, setApplicationStagesByJob] = useState<Record<string, ApplicationStage>>(() => {
+    try { return JSON.parse(window.localStorage.getItem('job-lool-up:application-stages') || '{}') as Record<string, ApplicationStage> } catch { return {} }
+  })
+  useEffect(() => {
+    try { window.localStorage.setItem('job-lool-up:application-stages', JSON.stringify(applicationStagesByJob)) } catch { /* Storage can be unavailable in private browsing. */ }
+  }, [applicationStagesByJob])
+  const updateApplicationStage = (jobId: string, stage: ApplicationStage) => setApplicationStagesByJob(current => ({ ...current, [jobId]: stage }))
   const [savedJobs, setSavedJobs] = useState<Job[]>(() => {
     try { return JSON.parse(window.localStorage.getItem('job-lool-up:saved-jobs') || '[]') as Job[] } catch { return [] }
   })
