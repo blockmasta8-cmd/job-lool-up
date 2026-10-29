@@ -1,3 +1,4 @@
+import { cachedJson } from '../server/cache.js'
 import { ADZUNA_SITE, ADZUNA_SUPPORTED, COUNTRY, CURRENCY, tagRemote } from '../server/geo.js'
 const allowed = new Set(Object.keys(COUNTRY))
 const clean = (v, n = 120) => String(v || '').trim().slice(0, n)
@@ -7,13 +8,13 @@ function matchesText(job, query, location) {
   return (!query || query.toLowerCase().split(/\s+/).every(word => text.includes(word))) && (!location || job.location.toLowerCase().includes(location.toLowerCase()))
 }
 async function searchJobicy({ query, location, country, limit }) {
-  const p = new URLSearchParams({ count: String(Math.min(100, Math.max(20, limit * 4))) })
-  if (query) p.set('tag', query)
-  if (country === 'us') p.set('geo', 'usa')
-  else p.set('geo', 'anywhere')
-  const r = await fetch(`https://jobicy.com/api/jobs?${p}`, { signal: AbortSignal.timeout(10000), headers: { accept: 'application/json' } })
-  if (!r.ok) throw Error(`Jobicy HTTP ${r.status}`)
-  const data = await r.json()
+  const geo = country === 'us' ? 'usa' : 'anywhere'
+  // One cached upstream request per geo per hour (Jobicy's stated limit); query and location are applied locally.
+  const data = await cachedJson(`jobicy:${geo}`, async () => {
+    const r = await fetch(`https://jobicy.com/api/jobs?count=100&geo=${geo}`, { signal: AbortSignal.timeout(10000), headers: { accept: 'application/json' } })
+    if (!r.ok) throw Error(`Jobicy HTTP ${r.status}`)
+    return r.json()
+  })
   const jobs = (data.jobs || []).map(x => {
     const url = x.url || '', title = clean(x.jobTitle || x.title, 180), postedAt = x.pubDate || x.date || x.jobPosted || null
     if (!title || !url.startsWith('https://jobicy.com/')) return null
@@ -22,13 +23,24 @@ async function searchJobicy({ query, location, country, limit }) {
   }).filter(Boolean).map(j => tagRemote(j, country)).filter(j => j && matchesText(j, query, location))
   return { configured: true, jobs: jobs.slice(0, limit) }
 }
+// Remote OK serves mixed-case hosts (https://remoteOK.com/...); compare hostnames, not raw prefixes.
+function officialUrl(raw, host) {
+  try {
+    const u = new URL(raw)
+    if (u.protocol !== 'https:' || u.hostname.toLowerCase() !== host) return ''
+    u.hostname = host
+    return u.toString()
+  } catch { return '' }
+}
 async function searchRemoteOK({ query, location, country, limit }) {
-  const r = await fetch('https://remoteok.com/api', { signal: AbortSignal.timeout(10000), headers: { accept: 'application/json', 'User-Agent': 'Job-Lool-Up/0.1 (job discovery; source attribution enabled)' } })
-  if (!r.ok) throw Error(`Remote OK HTTP ${r.status}`)
-  const data = await r.json()
+  const data = await cachedJson('remoteok', async () => {
+    const r = await fetch('https://remoteok.com/api', { signal: AbortSignal.timeout(10000), headers: { accept: 'application/json', 'User-Agent': 'Job-Lool-Up/0.1 (job discovery; source attribution enabled)' } })
+    if (!r.ok) throw Error(`Remote OK HTTP ${r.status}`)
+    return r.json()
+  })
   const jobs = (Array.isArray(data) ? data : []).filter(x => x && x.id && x.position).map(x => {
-    const url = x.url || (x.slug ? `https://remoteok.com/remote-jobs/${x.slug}` : '')
-    if (!url.startsWith('https://remoteok.com/')) return null
+    const url = officialUrl(x.url || (x.slug ? `https://remoteok.com/remote-jobs/${x.slug}` : ''), 'remoteok.com')
+    if (!url) return null
     const geo = clean(x.location) || 'Remote / eligibility not specified'
     return { id: `remoteok-${clean(x.id, 100)}`, title: clean(x.position, 180), company: clean(x.company) || 'Employer not listed', location: geo, country: geo, countryCode: 'remote', type: 'Remote', category: clean(Array.isArray(x.tags) ? x.tags.join(', ') : '') || 'General', salary: salary(x.salary_min, x.salary_max, x.salary_currency || 'USD'), postedAt: x.date || null, url, source: 'Remote OK', sourceUrl: 'https://remoteok.com/', tags: Array.isArray(x.tags) ? x.tags : [], eligibility: clean(x.location) }
   }).filter(Boolean).map(j => tagRemote(j, country)).filter(j => j && matchesText(j, query, location))

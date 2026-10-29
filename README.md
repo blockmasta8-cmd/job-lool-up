@@ -56,3 +56,16 @@ Use only official APIs, permitted feeds, or source-approved scrapers. Respect te
 
 - `npm test` runs offline checks (country-code consistency, false-match cases, API validation). It does not call live providers.
 - `npm run verify:providers` calls the live providers for every country and prints per-provider counts; it needs outbound internet and, for Adzuna/USAJOBS, credentials in `.env`.
+
+## Provider terms and production requirements
+
+Terms below come from the providers' own responses where noted; confirm them against each provider's current terms before launch.
+
+| Source | Terms (as verified or reported) | Handling in this app |
+| --- | --- | --- |
+| Remote OK | The API response itself requires a followed link back to the listing on Remote OK and naming Remote OK as the source; the logo may not be used. Access is suspended if not followed. | Every card links to the original `remoteok.com` URL (no `nofollow`) and shows "Remote OK"; no logo used. |
+| Jobicy | Reported (third-party summaries, not verified on Jobicy's site): credit Jobicy, send apply buttons to the Jobicy job URL, at most one sync per hour, results delayed about 3 hours. | Feeds are cached for 60 minutes per upstream URL; search text and location are applied locally to the cached feed, so narrow queries only see that feed. |
+| Adzuna | Needs written agreement for ongoing commercial use after the 14-day evaluation. Not enabled without credentials. | No credentials configured, so no Adzuna vacancies are returned yet. |
+| USAJOBS | Requires an API key and a registered user-agent. | No credentials configured. |
+
+Still required before a public launch: Adzuna and USAJOBS credentials and licence confirmation; a persistent store and scheduled refresh (the cache is in memory and per instance); per-IP rate limiting and restricted CORS on `/api/*` (currently open to all origins); request logging and monitoring; a hosting target that is not Vercel, Netlify or Cloudflare (the repo still contains `vercel.json`); and a local-listings source for Ireland, since Adzuna has none.
