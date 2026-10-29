@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env server/index.js & vite --host 0.0.0.0; wait",
     "build": "tsc -b && vite build",
+    "test": "node --test test/*.test.js",
+    "verify:providers": "node --env-file-if-exists=.env scripts/verify-providers.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "api": "node --env-file-if-exists=.env server/index.js"
   },

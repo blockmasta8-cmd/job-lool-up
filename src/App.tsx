@@ -5,9 +5,10 @@ type Job = {
   id: string; title: string; company: string; location: string; country: string; countryCode: string
   type: string; category: string; salary: string | null; postedAt: string | null; url: string
   source: string; sourceUrl: string
+  remoteEligibility?: 'country' | 'worldwide' | 'unspecified'; workLocation?: 'in-country'
 }
-type Provider = { name: string; country: string; configured: boolean; returned: number; error?: string }
-type SearchResponse = { jobs: Job[]; total: number; providers: Provider[]; errors: string[]; configured: boolean; message: string | null }
+type Provider = { name: string; country: string; configured: boolean; supported?: boolean; returned: number; error?: string }
+type SearchResponse = { jobs: Job[]; total: number; providers: Provider[]; errors: string[]; configured: boolean; message: string | null; notice?: string | null }
 const countries = ['All countries', 'United States', 'South Africa', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'France', 'Netherlands', 'New Zealand', 'Singapore', 'Ireland', 'India']
 const countryCode: Record<string, string> = { 'United States': 'us', 'South Africa': 'za', 'United Kingdom': 'gb', Canada: 'ca', Australia: 'au', Germany: 'de', France: 'fr', Netherlands: 'nl', 'New Zealand': 'nz', Singapore: 'sg', Ireland: 'ie', India: 'in' }
 
@@ -21,6 +22,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('Searching connected job sources…')
   const [errors, setErrors] = useState<string[]>([])
+  const [notice, setNotice] = useState('')
   useEffect(() => {
     let cancelled = false
     const controller = new AbortController()
@@ -38,6 +40,7 @@ export default function App() {
           setJobs(data.jobs || [])
           setProviders(data.providers || [])
           setErrors(data.errors || [])
+          setNotice(data.notice || '')
           setMessage(data.message || '')
         }
       } catch (error) {
@@ -61,8 +64,9 @@ export default function App() {
     <section className="jobs-section wrap" id="jobs"><div className="section-heading"><div><div className="eyebrow">THE NEXT STEP</div><h2>Explore opportunities</h2><p>Live listings from connected sources, with links to the original advert.</p></div><span className="demo-label">{loading ? 'SEARCHING SOURCES…' : configuredNames.length ? 'LIVE SOURCE SEARCH' : 'SOURCES NOT CONFIGURED'}</span></div>
       <div className="filters"><label className="filter-select"><MapPin size={17}/><select value={country} onChange={e => setCountry(e.target.value)} aria-label="Filter by country">{countries.map(c => <option key={c}>{c}</option>)}</select></label><label className="filter-select"><Search size={17}/><input value={location} onChange={e => setLocation(e.target.value)} placeholder="City or region" aria-label="Filter by location" style={{border:0,outline:0,minWidth:0,width:'100%',background:'transparent',fontSize:12}}/></label><label className="filter-select"><BriefcaseBusiness size={17}/><select value={workType} onChange={e => setWorkType(e.target.value)} aria-label="Filter by work type"><option>Any work type</option><option>Remote</option><option>Hybrid</option><option>On-site</option></select></label><span className="result-count">{filtered.length} listings</span></div>
       {configuredNames.length > 0 && <p className="source-line">Connected: {configuredNames.join(' · ')}</p>}
-      <div className="job-grid">{filtered.map(job => <article className="job-card" key={job.id}><div className="job-card-top"><span className="company-logo">{job.company.slice(0,2).toUpperCase()}</span><span className="preview-pill">{job.source}</span></div><h3>{job.title}</h3><p className="company">{job.company}</p><div className="job-tags"><span>{job.type}</span><span>{job.category}</span></div><div className="job-location"><MapPin size={15}/>{job.location} · {job.country}</div><div className="job-card-bottom"><span>{job.salary || 'Salary not provided'}</span><a href={job.url} target="_blank" rel="noreferrer" aria-label={'Open original listing for ' + job.title}>Apply <ArrowRight size={15}/></a></div>{job.source === 'Adzuna' ? <div className="source-credit"><a className="adzuna-credit" href={job.sourceUrl} target="_blank" rel="noreferrer">Adzuna</a>{job.postedAt ? ' · Posted ' + new Date(job.postedAt).toLocaleDateString() : ''}</div> : <div className="source-credit">Source: <a href={job.sourceUrl} target="_blank" rel="noreferrer">{job.source}</a>{job.postedAt ? ' · Posted ' + new Date(job.postedAt).toLocaleDateString() : ''}</div>}</article>)}</div>
-      {!filtered.length && <div className="empty-state"><ShieldCheck size={24}/><h3>{loading ? 'Finding current vacancies…' : 'No live listings to show'}</h3><p>{message || 'Try another keyword, location, or country.'}</p>{!loading && providers.length > 0 && <p>Source setup: {providers.map(p => p.name + (p.configured ? ' connected' : ' needs credentials')).join(' · ')}</p>}</div>}
+      {notice && <p className="source-line">{notice}</p>}
+      <div className="job-grid">{filtered.map(job => <article className="job-card" key={job.id}><div className="job-card-top"><span className="company-logo">{job.company.slice(0,2).toUpperCase()}</span><span className="preview-pill">{job.source}</span></div><h3>{job.title}</h3><p className="company">{job.company}</p><div className="job-tags"><span>{job.type}</span><span>{job.category}</span>{job.remoteEligibility && <span>{job.remoteEligibility === 'worldwide' ? 'Remote: open worldwide' : job.remoteEligibility === 'country' ? 'Remote: country listed' : 'Remote: eligibility not stated'}</span>}{job.workLocation === 'in-country' && <span>Located in {job.country}</span>}</div><div className="job-location"><MapPin size={15}/>{job.location} · {job.country}</div><div className="job-card-bottom"><span>{job.salary || 'Salary not provided'}</span><a href={job.url} target="_blank" rel="noreferrer" aria-label={'Open original listing for ' + job.title}>Apply <ArrowRight size={15}/></a></div>{job.source === 'Adzuna' ? <div className="source-credit"><a className="adzuna-credit" href={job.sourceUrl} target="_blank" rel="noreferrer">Adzuna</a>{job.postedAt ? ' · Posted ' + new Date(job.postedAt).toLocaleDateString() : ''}</div> : <div className="source-credit">Source: <a href={job.sourceUrl} target="_blank" rel="noreferrer">{job.source}</a>{job.postedAt ? ' · Posted ' + new Date(job.postedAt).toLocaleDateString() : ''}</div>}</article>)}</div>
+      {!filtered.length && <div className="empty-state"><ShieldCheck size={24}/><h3>{loading ? 'Finding current vacancies…' : 'No live listings to show'}</h3><p>{message || 'Try another keyword, location, or country.'}</p>{!loading && providers.length > 0 && <p>Source setup: {providers.map(p => p.name + (p.supported === false ? ' not available for this country' : p.configured ? ' connected' : ' needs credentials')).join(' · ')}</p>}</div>}
       {errors.length > 0 && <p className="source-line">Some sources reported an issue: {errors.join(' · ')}</p>}
       <div className="notice"><ShieldCheck size={20}/><p><b>Honest by design.</b> Only source-returned vacancies are displayed. Listings are deduplicated, old Adzuna results are filtered, and each card links to the original source. Always confirm the vacancy is still open before applying.</p></div></section>
     <section className="how-section" id="how"><div className="wrap"><div className="eyebrow">SIMPLE BY DESIGN</div><h2>A clearer path to your next role.</h2><div className="steps"><article><span>01</span><Search/><h3>Search your way</h3><p>Use skills, role names, location and work preferences to narrow your search.</p></article><article><span>02</span><Globe2/><h3>Explore the world</h3><p>Compare opportunities across countries, with local context as we expand.</p></article><article><span>03</span><ShieldCheck/><h3>Apply with confidence</h3><p>See where a listing came from and follow the original application link.</p></article></div></div></section>
