@@ -1,5 +1,5 @@
-const COUNTRY = { us: 'United States', za: 'South Africa' }
-const allowed = new Set(['us', 'za'])
+const COUNTRY = { us: 'United States', za: 'South Africa', gb: 'United Kingdom', ca: 'Canada', au: 'Australia', de: 'Germany', fr: 'France', nl: 'Netherlands', nz: 'New Zealand', sg: 'Singapore', ie: 'Ireland', in: 'India' }
+const allowed = new Set(Object.keys(COUNTRY))
 const clean = (v, n = 120) => String(v || '').trim().slice(0, n)
 const salary = (a, b, currency = '') => a == null && b == null ? null : `${currency} ${[a, b].filter(v => v != null).map(v => Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 })).join('–')}`.trim()
 function matchesText(job, query, location) {
@@ -16,7 +16,7 @@ async function searchJobicy({ query, location, country, limit }) {
   const p = new URLSearchParams({ count: String(Math.min(100, Math.max(20, limit * 4))) })
   if (query) p.set('tag', query)
   if (country === 'us') p.set('geo', 'usa')
-  if (country === 'za') p.set('geo', 'anywhere')
+  else p.set('geo', 'anywhere')
   const r = await fetch(`https://jobicy.com/api/jobs?${p}`, { signal: AbortSignal.timeout(10000), headers: { accept: 'application/json' } })
   if (!r.ok) throw Error(`Jobicy HTTP ${r.status}`)
   const data = await r.json()
@@ -88,7 +88,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
   const countryParam = clean(req.query?.country, 2).toLowerCase()
   const countries = countryParam ? [countryParam] : ['us', 'za']
-  if (countries.some(c => !allowed.has(c))) return res.status(400).json({ error: 'Supported launch countries are us and za.' })
+  if (countries.some(c => !allowed.has(c))) return res.status(400).json({ error: `Unsupported country. Supported codes: ${[...allowed].join(', ')}.` })
   const query = clean(req.query?.query, 100), location = clean(req.query?.location, 100), limit = Math.max(1, Math.min(30, Number(req.query?.limit) || 15))
   const providers = [], jobs = [], errors = []
   for (const country of countries) {
