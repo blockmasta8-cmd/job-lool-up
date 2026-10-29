@@ -39,14 +39,14 @@ Vite serves the frontend and proxies `/api` requests to the Node API on port 878
 - `GET /api/jobs?country=za&query=developer&location=Cape%20Town` — South Africa search.
 - `GET /api/jobs?query=analyst` — searches launch countries and public remote feeds.
 
-Supported country codes are `us` and `za`. Remote feeds only cover their own inventory and eligibility can vary by vacancy. Check the original posting before applying. Salaries are shown only when a source provides them.
+Country-specific search codes currently accepted by the API are `us`, `za`, `gb`, `ca`, `au`, `de`, `fr`, `nl`, `nz`, `sg`, `ie`, and `in`. The US and South Africa remain the initial launch markets; additional country-specific general listings depend on Adzuna credentials and approved commercial use. Remote feeds only cover their own inventory, and eligibility can vary by vacancy. Check the original posting before applying. Salaries are shown only when a source provides them.
 
 ## Roadmap
 
-- Obtain commercial permission and credentials for broad US and South African listings.
+- Confirm provider licensing and credentials before enabling broad commercial listings in each market.
 - Add a scheduled refresh, persistent storage, source status rechecks, and stronger cross-source deduplication.
 - Add accounts, saved jobs, alerts, and application tracking.
-- Expand country-by-country using permitted APIs or feeds.
+- Expand country-by-country using permitted APIs or feeds, with source-specific coverage and attribution.
 
 ## Data policy
 
