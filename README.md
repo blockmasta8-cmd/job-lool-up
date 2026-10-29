@@ -8,7 +8,7 @@ The app includes serverless search endpoints for deployment and a local Node API
 - **Jobicy**: keyless public remote-job API; recent postings, with original Jobicy listing links and attribution.
 - **Remote OK**: public remote-job feed; the UI links to each original listing and credits Remote OK.
 - **USAJOBS**: US federal vacancy API, activated when an API key and registered email are configured.
-- **Adzuna**: US and South Africa general vacancy API, activated when credentials are configured.
+- **Adzuna**: general vacancy API for 11 of the 12 markets (US, ZA, GB, CA, AU, DE, FR, NL, NZ, SG, IN), activated when credentials are configured. Adzuna has no Ireland index, so Ireland shows remote-eligible feed listings only.
 
 The app normalizes results and deduplicates matching title/company/location records. It filters old Adzuna results older than 45 days and expired USAJOBS announcements. Keyless remote feeds provide some real listings immediately, but do not represent all vacancies in either country. The interface does not invent fallback jobs.
 
@@ -39,7 +39,7 @@ Vite serves the frontend and proxies `/api` requests to the Node API on port 878
 - `GET /api/jobs?country=za&query=developer&location=Cape%20Town` — South Africa search.
 - `GET /api/jobs?query=analyst` — searches launch countries and public remote feeds.
 
-Country-specific search codes currently accepted by the API are `us`, `za`, `gb`, `ca`, `au`, `de`, `fr`, `nl`, `nz`, `sg`, `ie`, and `in`. The US and South Africa remain the initial launch markets; additional country-specific general listings depend on Adzuna credentials and approved commercial use. Remote feeds only cover their own inventory, and eligibility can vary by vacancy. Check the original posting before applying. Salaries are shown only when a source provides them.
+Country-specific search codes currently accepted by the API are `us`, `za`, `gb`, `ca`, `au`, `de`, `fr`, `nl`, `nz`, `sg`, `ie`, and `in`. The US and South Africa remain the initial launch markets; additional country-specific general listings depend on Adzuna credentials and approved commercial use. Remote feed listings are labelled by eligibility (open worldwide, country named, or not stated) and are not claimed to be physically located in the selected country; Adzuna and USAJOBS listings are labelled as located in-country. "All countries" searches local listings in the US and South Africa plus the remote feeds. Remote feeds only cover their own inventory. Check the original posting before applying. Salaries are shown only when a source provides them.
 
 ## Roadmap
 
@@ -51,3 +51,8 @@ Country-specific search codes currently accepted by the API are `us`, `za`, `gb`
 ## Data policy
 
 Use only official APIs, permitted feeds, or source-approved scrapers. Respect terms and rate limits. Never commit secrets, fabricate listings, or claim a vacancy is open without a recent source check.
+
+## Verification
+
+- `npm test` runs offline checks (country-code consistency, false-match cases, API validation). It does not call live providers.
+- `npm run verify:providers` calls the live providers for every country and prints per-provider counts; it needs outbound internet and, for Adzuna/USAJOBS, credentials in `.env`.
